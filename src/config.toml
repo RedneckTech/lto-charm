@@ -1,0 +1,11 @@
+[settings]
+default_directory = "."
+
+[colors]
+directory_color = "blue"
+file_color = "green"
+
+[styles]
+input_height = 3
+input_border_color = "gray"
+textlog_border_color = "gray"
