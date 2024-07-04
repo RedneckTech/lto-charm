@@ -1,9 +1,12 @@
 import os
 import toml
 from textual.app import App
-from textual.widgets import Header, Footer, Input, Log
-from textual.containers import Vertical
+from textual.widgets import Header, Footer, Input, Log, Tree
+from textual.containers import Horizontal, Vertical
 from file_operations import FileOperations
+
+# Define the configuration directory
+config_dir = "."
 
 def load_config():
     """
@@ -12,36 +15,23 @@ def load_config():
     Returns:
         dict: The configuration dictionary.
     """
-    if os.path.exists('config.toml'):
-        with open('config.toml', 'r') as config_file:
+    config_path = os.path.join(config_dir, 'config.toml')
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as config_file:
             return toml.load(config_file)
     else:
         return {}
 
 class LtoCharm(App):
-    """
-    The main application class for the lto-charm file manager.
-    """
 
     def __init__(self, **kwargs):
-        """
-        Initialize the LtoCharm application.
-
-        Args:
-            **kwargs: Additional keyword arguments for the App base class.
-        """
         super().__init__(**kwargs)
         self.config = load_config()
         self.default_directory = self.config.get('settings', {}).get('default_directory', '.')
         self.file_ops = FileOperations(self)
 
     def create_styles(self):
-        """
-        Create a styles dictionary based on the config.toml settings.
-
-        Returns:
-            dict: The styles dictionary.
-        """
+        #Create a styles dictionary based on the config.toml settings.
         styles = self.config.get('styles', {})
         input_height = styles.get('input_height', 3)
         input_border_color = styles.get('input_border_color', 'gray')
@@ -58,55 +48,48 @@ class LtoCharm(App):
         }
 
     def compose(self):
-        """
-        Define the layout of the application.
-        """
+        #Define the layout of the application.
         yield Header()
-        yield Vertical(
-            Input(placeholder="Command", id="command_input"),
-            Log(id="log_widget")
+        yield Horizontal(
+            Vertical(
+                Input(placeholder="Enter directory", id="dir_input_left"),
+                Tree("Left Panel", id="tree_left"),  # Provide a label for the tree
+            ),
+            Vertical(
+                Input(placeholder="Enter directory", id="dir_input_right"),
+                Tree("Right Panel", id="tree_right"),  # Provide a label for the tree
+            ),
         )
         yield Footer()
 
     async def on_mount(self):
-        """
-        Mount the components and apply the stylesheet when the application starts.
-        """
-        self.command_input = self.query_one("#command_input", Input)
-        self.command_input.on_submit = self.handle_command
-        self.log_widget = self.query_one("#log_widget", Log)
+        #Mount the components and apply the stylesheet when the application starts.
+        self.dir_input_left = self.query_one("#dir_input_left", Input)
+        self.dir_input_right = self.query_one("#dir_input_right", Input)
+        self.tree_left = self.query_one("#tree_left", Tree)
+        self.tree_right = self.query_one("#tree_right", Tree)
+
+        self.dir_input_left.on_submit = self.update_tree_left
+        self.dir_input_right.on_submit = self.update_tree_right
 
         styles = self.create_styles()
         input_styles = styles['input']
         log_styles = styles['log']
 
-        self.command_input.styles.height = input_styles['height']
-        self.command_input.styles.border_color = input_styles['border_color']
-        self.log_widget.styles.border_color = log_styles['border_color']
+        self.dir_input_left.styles.height = input_styles['height']
+        self.dir_input_left.styles.border_color = input_styles['border_color']
+        self.dir_input_right.styles.height = input_styles['height']
+        self.dir_input_right.styles.border_color = input_styles['border_color']
 
-    async def handle_command(self, value):
-        """
-        Handle the command input by the user.
+    async def update_tree_left(self, value):
+        #Update the left tree with the contents of the directory entered by the user.
+        path = value.strip()
+        self.file_ops.populate_tree(self.tree_left, path)
 
-        Args:
-            value (str): The command entered by the user.
-        """
-        command = value.strip()
-        self.log_widget.write(f"[bold]lto-charm>[/bold] {command}")
-
-        if command.startswith('ls'):
-            path = command.split(' ')[1] if len(command.split(' ')) > 1 else self.default_directory
-            self.file_ops.list_directory(path)
-        elif command.startswith('touch'):
-            _, path, filename = command.split(' ')
-            self.file_ops.create_file(path, filename)
-        elif command.startswith('rm'):
-            _, path = command.split(' ')
-            self.file_ops.delete_file(path)
-        elif command in ['exit', 'quit']:
-            await self.action_quit()
-        else:
-            self.log_widget.write("[red]Unknown command[/red]")
+    async def update_tree_right(self, value):
+        #Update the right tree with the contents of the directory entered by the user.
+        path = value.strip()
+        self.file_ops.populate_tree(self.tree_right, path)
 
 if __name__ == "__main__":
     LtoCharm().run()

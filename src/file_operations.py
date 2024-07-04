@@ -1,34 +1,30 @@
 import os
+from textual.widgets import Tree
 
 class FileOperations:
+
     def __init__(self, app):
         self.app = app
 
     def list_directory(self, path: str):
         try:
+            tree_data = []
             with os.scandir(path) as entries:
                 for entry in entries:
                     if entry.is_dir():
-                        self.app.print(f"[blue]{entry.name}[/blue]")
+                        tree_data.append((entry.name, "directory"))
                     else:
-                        self.app.print(f"[green]{entry.name}[/green]")
+                        tree_data.append((entry.name, "file"))
+            return tree_data
         except Exception as e:
-            self.app.print(f"[red]Error: {e}[/red]")
+            self.app.log_widget.write(f"[red]Error: {e}[/red]")
+            return []
 
-    def create_file(self, path: str, filename: str):
-        full_path = os.path.join(path, filename)
-        try:
-            with open(full_path, 'w') as file:
-                file.write('')
-            self.app.print(f"[green]File created: {full_path}[/green]")
-        except Exception as e:
-            self.app.print(f"[red]Error: {e}[/red]")
-
-    def delete_file(self, path: str):
-        try:
-            os.remove(path)
-            self.app.print(f"[green]File deleted: {path}[/green]")
-        except Exception as e:
-            self.app.print(f"[red]Error: {e}[/red]")
-
-    # Add more file operations as needed
+    def populate_tree(self, tree: Tree, path: str):
+        tree.clear()
+        tree_data = self.list_directory(path)
+        for name, entry_type in tree_data:
+            if entry_type == "directory":
+                tree.root.add(name, expanded=False)
+            else:
+                tree.root.add(name)
